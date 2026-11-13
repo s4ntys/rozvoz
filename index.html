@@ -62,42 +62,142 @@
             margin: 8px 0;
         }
 
-        /* Pravidlá výhradne pre tlač na bločkovú tlačiareň */
+        /* Tlač pre 80 mm termotlačiareň EPSON pripojenú cez LAN.
+           Skutočnú šírku papiera a rezačku nastavte aj v ovládači tlačiarne. */
         @media print {
             @page {
+                /* Rozmer kotúča určuje ovládač EPSON vo Windows. */
                 margin: 0;
-                size: auto;
             }
 
             html, body {
-                background: #ffffff !important;
+                width: 80mm !important;
+                min-width: 80mm !important;
                 margin: 0 !important;
                 padding: 0 !important;
-                width: 100% !important;
+                background: #fff !important;
+                color: #000 !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }
 
-            .no-print {
+            body {
+                display: block !important;
+                min-height: 0 !important;
+                padding-bottom: 0 !important;
+            }
+
+            .no-print,
+            header,
+            main > .grid > section:not(.print-area) {
                 display: none !important;
+            }
+
+            main {
+                display: block !important;
+                width: 80mm !important;
+                max-width: 80mm !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+
+            main > .grid {
+                display: block !important;
+                margin: 0 !important;
+                padding: 0 !important;
             }
 
             .print-area {
                 display: block !important;
                 position: static !important;
-                width: 100% !important;
+                width: 80mm !important;
+                max-width: 80mm !important;
                 margin: 0 !important;
                 padding: 0 !important;
             }
 
+            #receiptPaper,
             .receipt-paper {
-                box-shadow: none !important;
-                border: none !important;
-                border-radius: 0 !important;
+                box-sizing: border-box !important;
+                display: block !important;
+                width: 72mm !important;
+                min-width: 72mm !important;
+                max-width: 72mm !important;
                 margin: 0 !important;
-                padding: 3mm 2.5mm !important;
-                width: 100% !important;
-                max-width: 100% !important;
+                padding: 2mm 1mm 4mm 1mm !important;
+                border: 0 !important;
+                border-radius: 0 !important;
+                box-shadow: none !important;
+                background: #fff !important;
+                color: #000 !important;
+                font-family: Arial, Helvetica, sans-serif !important;
+                transition: none !important;
+                overflow: visible !important;
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
+
+            #receiptPaper * {
+                color: #000 !important;
+                text-shadow: none !important;
+                box-shadow: none !important;
+                font-family: Arial, Helvetica, sans-serif !important;
+                -webkit-print-color-adjust: economy !important;
+                print-color-adjust: economy !important;
+            }
+
+            /* Čierny pás zmeníme na úspornú, dobre čitateľnú hlavičku. */
+            #receiptPaper .bg-black {
+                background: #fff !important;
+                color: #000 !important;
+                border-top: 2px solid #000 !important;
+                border-bottom: 2px solid #000 !important;
+                padding: 2mm 0 !important;
+            }
+
+            #receiptPaper .border-2,
+            #receiptPaper .border-black {
+                border-color: #000 !important;
+            }
+
+            #receiptPaper .receipt-divider-dashed {
+                border-top: 1px dashed #000 !important;
+                margin: 2mm 0 !important;
+            }
+
+            #receiptPaper .receipt-divider-solid {
+                border-top: 1px solid #000 !important;
+                margin: 2mm 0 !important;
+            }
+
+            #receiptPaper .r-text-xs { font-size: 9pt !important; line-height: 1.2 !important; }
+            #receiptPaper .r-text-sm { font-size: 10pt !important; line-height: 1.2 !important; }
+            #receiptPaper .r-text-base { font-size: 11pt !important; line-height: 1.25 !important; }
+            #receiptPaper .r-text-lg { font-size: 13pt !important; line-height: 1.2 !important; }
+            #receiptPaper .r-text-xl { font-size: 16pt !important; line-height: 1.15 !important; }
+
+            #receiptPaper .hidden {
+                display: none !important;
+            }
+
+            #receiptPaper .text-center { text-align: center !important; }
+            #receiptPaper .text-right { text-align: right !important; }
+            #receiptPaper .font-black,
+            #receiptPaper .font-extrabold,
+            #receiptPaper .font-bold { font-weight: 700 !important; }
+
+            #receiptPaper .pt-4 { padding-top: 2mm !important; }
+            #receiptPaper .pb-4 { padding-bottom: 2mm !important; }
+            #receiptPaper .my-2,
+            #receiptPaper .my-2\.5 { margin-top: 2mm !important; margin-bottom: 2mm !important; }
+
+            /* Nedeliť jednotlivé dôležité bloky medzi strany. */
+            #previewAddressBox,
+            #previewPickupContactBox,
+            #previewNoteBox,
+            #previewPaymentBox {
+                break-inside: avoid;
+                page-break-inside: avoid;
             }
         }
     </style>
@@ -280,6 +380,11 @@
                     </div>
 
                     <!-- Veľkosť písma: 1x, 1.3x, 1.6x -->
+                    <p class="text-[11px] leading-relaxed text-slate-500">
+                        EPSON cez LAN: tlač prebieha cez ovládač tlačiarne nainštalovaný vo Windows.
+                        V dialógu tlače vyberte EPSON a papierový kotúč 80 mm.
+                    </p>
+
                     <div class="grid grid-cols-3 gap-2">
                         <button type="button" id="btnScale1" onclick="setFontScale('1')" class="py-2.5 px-2 rounded-xl text-xs font-bold border transition bg-white border-slate-200 text-slate-700 hover:bg-slate-50 cursor-pointer">
                             Normálne (1x)
@@ -618,7 +723,7 @@
             if (state.orderType === 'KUCHYŇA') icon = '🍳';
             if (state.orderType === 'OSOBNÝ ODBER') icon = '🛍️';
 
-            document.getElementById('previewType').textContent = `${icon} ${state.orderType}`;
+            document.getElementById('previewType').textContent = state.orderType;
             document.getElementById('previewNumber').textContent = `#${orderNumber}`;
 
             // Sekcie podľa typu objednávky
@@ -710,7 +815,7 @@
                 if (payment === 'ZAPLATENÉ KARTOU ONLINE') payIcon = '✅';
                 if (payment === 'KARTOU KURIÉROVI') payIcon = '💳';
 
-                document.getElementById('previewPaymentType').textContent = `${payIcon} ${payment}`;
+                document.getElementById('previewPaymentType').textContent = payment;
 
                 const priceRow = document.getElementById('previewPriceRow');
                 if (price) {
@@ -727,6 +832,10 @@
             updateClock();
             updateReceipt();
             saveCurrentOrderToHistory();
+
+            // Tlač ide cez systémový ovládač Windows pre sieťovú EPSON tlačiareň.
+            // Prehliadač musí mať EPSON nastavený ako dostupnú tlačiareň.
+            document.title = `Objednavka-${document.getElementById('orderNumber').value || '1'}`;
             window.print();
         }
 
