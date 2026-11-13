@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Rozvoz & Kuchyňa – Tlač bločkov</title>
+
+    <!-- PWA Meta tagy pre iPhone (Safari -> Pridať na plochu) -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Rozvoz & Kuchyňa">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#0f172a">
+
+    <!-- Vstavaná SVG ikona aplikácie pre iOS/Android domovskú obrazovku -->
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='36' fill='%230f172a'/%3E%3Crect x='42' y='28' width='96' height='46' rx='6' fill='%23f8fafc'/%3E%3Crect x='26' y='62' width='128' height='64' rx='12' fill='%23f59e0b'/%3E%3Crect x='42' y='102' width='96' height='54' rx='4' fill='%23ffffff'/%3E%3Cline x1='54' y1='118' x2='126' y2='118' stroke='%230f172a' stroke-width='6' stroke-linecap='round'/%3E%3Cline x1='54' y1='134' x2='106' y2='134' stroke='%230f172a' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230f172a'/%3E%3Ctext x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-size='34'%3E🖨️%3C/text%3E%3C/svg%3E">
+
+    <!-- Načítanie Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Písmo Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Štýly bločku pre termotlačiareň (náhľad na obrazovke aj ostrá tlač) */
+        .receipt-paper {
+            background-color: #ffffff;
+            color: #000000;
+            font-family: 'Inter', sans-serif;
+            transition: width 0.2s ease;
+            box-shadow: 0 12px 28px -6px rgba(0, 0, 0, 0.16), 0 4px 10px -4px rgba(0, 0, 0, 0.08);
+            --font-scale: 1.3;
+        }
+
+        .receipt-80mm {
+            width: 302px; /* 80mm pri 96 DPI */
+        }
+
+        .receipt-58mm {
+            width: 219px; /* 58mm pri 96 DPI */
+        }
+
+        /* Škálovanie veľkostí písma na bločku (1x, 1.3x, 1.6x) */
+        .r-text-xs { font-size: calc(11px * var(--font-scale)); line-height: 1.3; }
+        .r-text-sm { font-size: calc(13px * var(--font-scale)); line-height: 1.35; }
+        .r-text-base { font-size: calc(15px * var(--font-scale)); line-height: 1.35; }
+        .r-text-lg { font-size: calc(18px * var(--font-scale)); line-height: 1.3; }
+        .r-text-xl { font-size: calc(21px * var(--font-scale)); line-height: 1.25; }
+
+        .receipt-divider-dashed {
+            border-top: 2px dashed #000000;
+            margin: 8px 0;
+        }
+
+        .receipt-divider-solid {
+            border-top: 2px solid #000000;
+            margin: 8px 0;
+        }
+
+        /* Pravidlá výhradne pre tlač na bločkovú tlačiareň */
+        @media print {
+            @page {
+                margin: 0;
+                size: auto;
+            }
+
+            html, body {
+                background: #ffffff !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                width: 100% !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+
+            .print-area {
+                display: block !important;
+                position: static !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+
+            .receipt-paper {
+                box-shadow: none !important;
+                border: none !important;
+                border-radius: 0 !important;
+                margin: 0 !important;
+                padding: 3mm 2.5mm !important;
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen pb-8">
+
+    <!-- Horná lišta aplikácie -->
+    <header class="no-print bg-slate-900 text-white shadow-md sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5">
+                <div class="bg-amber-500 text-slate-950 w-10 h-10 rounded-xl flex items-center justify-center text-xl font-black shadow-xs">
+                    🖨️
+                </div>
+                <div>
+                    <h1 class="font-extrabold text-base sm:text-lg leading-tight tracking-tight">Rozvoz & Kuchyňa</h1>
+                    <p class="text-[11px] sm:text-xs text-slate-400">Rýchla tlač bločkov (80mm / 58mm)</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button type="button" onclick="openHistoryModal()" class="bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-slate-100 text-xs sm:text-sm font-semibold px-3 py-2.5 rounded-xl border border-slate-700 transition flex items-center gap-1.5 cursor-pointer">
+                    <span>🕒 História</span>
+                    <span id="historyBadge" class="bg-amber-500 text-slate-950 text-[11px] font-extrabold px-1.5 py-0.5 rounded-md">0</span>
+                </button>
+                <button type="button" onclick="clearForm(true)" class="bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-xs sm:text-sm font-semibold px-3 py-2.5 rounded-xl transition cursor-pointer">
+                    🗑️ Vyčistiť
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hlavný obsah -->
+    <main class="max-w-7xl mx-auto p-3 sm:p-5 lg:p-6">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+            <!-- ĽAVÝ STĹPEC: Formulár na zadávanie objednávky -->
+            <section class="no-print lg:col-span-7 space-y-4">
+
+                <!-- 1. Základné údaje: Typ objednávky, Číslo a Názov prevádzky -->
+                <div class="bg-white p-4 sm:p-5 rounded-2xl shadow-xs border border-slate-200 space-y-4">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <span class="text-xs font-extrabold uppercase tracking-wider text-slate-400">1. Typ a číslo objednávky</span>
+
+                        <!-- Počítadlo objednávok -->
+                        <div class="flex items-center gap-1.5 bg-slate-100 px-2.5 py-1.5 rounded-xl border border-slate-200">
+                            <label for="orderNumber" class="text-xs font-bold text-slate-600">Číslo #</label>
+                            <input type="text" id="orderNumber" value="1" oninput="updateReceipt()" class="w-14 text-center font-black text-slate-900 bg-white border border-slate-300 rounded-lg py-1 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                            <button type="button" onclick="resetOrderCounter()" title="Resetovať číslo na #1" class="bg-white hover:bg-slate-200 text-slate-700 font-bold text-xs px-2 py-1 rounded-lg border border-slate-300 transition cursor-pointer">
+                                Reset #1
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Prepínač typu objednávky -->
+                    <div class="grid grid-cols-3 gap-2">
+                        <button type="button" id="btnTypeRozvoz" onclick="setOrderType('ROZVOZ')" class="py-3 px-2 rounded-xl font-extrabold text-xs sm:text-sm border-2 transition flex flex-col items-center justify-center gap-1 bg-amber-50 border-amber-500 text-amber-950 cursor-pointer">
+                            <span class="text-xl">🚚</span>
+                            <span>ROZVOZ</span>
+                        </button>
+                        <button type="button" id="btnTypeKuchyna" onclick="setOrderType('KUCHYŇA')" class="py-3 px-2 rounded-xl font-extrabold text-xs sm:text-sm border-2 transition flex flex-col items-center justify-center gap-1 bg-white border-slate-200 text-slate-600 hover:bg-slate-50 cursor-pointer">
+                            <span class="text-xl">🍳</span>
+                            <span>KUCHYŇA</span>
+                        </button>
+                        <button type="button" id="btnTypeOdber" onclick="setOrderType('OSOBNÝ ODBER')" class="py-3 px-2 rounded-xl font-extrabold text-xs sm:text-sm border-2 transition flex flex-col items-center justify-center gap-1 bg-white border-slate-200 text-slate-600 hover:bg-slate-50 cursor-pointer">
+                            <span class="text-xl">🛍️</span>
+                            <span>OSOBNÝ ODBER</span>
+                        </button>
+                    </div>
+
+                    <!-- Názov prevádzky (ukladá sa automaticky do localStorage) -->
+                    <div class="pt-1">
+                        <label for="shopNameInput" class="block text-xs font-bold text-slate-600 mb-1">Názov prevádzky (automaticky sa uloží)</label>
+                        <input type="text" id="shopNameInput" placeholder="napr. PIZZERIA & BISTRO ROMA" oninput="handleShopNameChange()" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm font-bold text-slate-900 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    </div>
+                </div>
+
+                <!-- 2. Údaje pre rozvozára (skryje sa automaticky pri voľbe KUCHYŇA) -->
+                <div id="deliverySectionForm" class="bg-white p-4 sm:p-5 rounded-2xl shadow-xs border border-slate-200 space-y-3.5">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-extrabold uppercase tracking-wider text-slate-400">2. Údaje pre rozvozára</span>
+                        <span class="text-[11px] font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded-md">Tučné orámovanie na lístku</span>
+                    </div>
+
+                    <!-- Zvýraznené pole pre Ulicu a číslo domu -->
+                    <div id="addressFieldsWrapper" class="space-y-3">
+                        <div class="bg-amber-50/70 p-3 rounded-xl border-2 border-amber-300">
+                            <label for="streetInput" class="block text-xs font-extrabold uppercase text-amber-950 mb-1">📍 Ulica a číslo domu *</label>
+                            <input type="text" id="streetInput" placeholder="napr. Hlavná 42/B (3. poschodie)" oninput="updateReceipt()" class="w-full rounded-xl border border-amber-400 bg-white px-3.5 py-3 text-base font-extrabold text-slate-950 placeholder:font-normal placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500">
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label for="cityInput" class="block text-xs font-bold text-slate-700 mb-1">Mesto / Mestská časť</label>
+                                <input type="text" id="cityInput" placeholder="napr. Staré Mesto" oninput="updateReceipt()" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-base font-semibold text-slate-900 placeholder:font-normal placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500">
+                            </div>
+
+                            <div>
+                                <label for="phoneInput" class="block text-xs font-bold text-slate-700 mb-1">📞 Telefónne číslo *</label>
+                                <input type="tel" id="phoneInput" placeholder="napr. 0905 123 456" oninput="updateReceipt()" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-base font-bold text-slate-900 placeholder:font-normal placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label for="customerNameInput" class="block text-xs font-bold text-slate-700 mb-1">Meno zákazníka</label>
+                            <input type="text" id="customerNameInput" placeholder="napr. Ján Novák" oninput="updateReceipt()" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm font-semibold text-slate-900 placeholder:font-normal placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500">
+                        </div>
+
+                        <div>
+                            <label for="paymentInput" class="block text-xs font-bold text-slate-700 mb-1">Spôsob platby</label>
+                            <select id="paymentInput" onchange="updateReceipt()" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm font-bold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500">
+                                <option value="HOTOVOSŤ">💵 Hotovosť</option>
+                                <option value="ZAPLATENÉ KARTOU ONLINE">✅ Zaplatené kartou online</option>
+                                <option value="KARTOU KURIÉROVI">💳 Kartou kuriérovi</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="priceInput" class="block text-xs font-bold text-slate-700 mb-1">Suma na úhradu (€)</label>
+                            <div class="relative">
+                                <input type="text" id="priceInput" inputmode="decimal" placeholder="napr. 14,50" oninput="updateReceipt()" class="w-full rounded-xl border border-slate-300 pl-3.5 pr-8 py-2.5 text-base font-extrabold text-slate-900 placeholder:font-normal placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500">
+                                <span class="absolute right-3 top-1/2 -translate-y-1/2 font-extrabold text-slate-400">€</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Objednávka / Položky -->
+                <div class="bg-white p-4 sm:p-5 rounded-2xl shadow-xs border border-slate-200 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-extrabold uppercase tracking-wider text-slate-400">3. Objednávka / Položky</span>
+                        <button type="button" onclick="clearItemsOnly()" class="text-xs font-semibold text-slate-500 hover:text-rose-600 transition cursor-pointer">Vymazať položky</button>
+                    </div>
+
+                    <!-- Rýchle tlačidlá na pridanie riadku -->
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" onclick="appendQuickItem('1x Polievka: ')" class="bg-amber-50 hover:bg-amber-100 active:bg-amber-200 text-amber-950 font-bold text-xs sm:text-sm px-3 py-2 rounded-xl border border-amber-200 transition cursor-pointer">
+                            + Polievka
+                        </button>
+                        <button type="button" onclick="appendQuickItem('1x Hlavné jedlo: ')" class="bg-amber-50 hover:bg-amber-100 active:bg-amber-200 text-amber-950 font-bold text-xs sm:text-sm px-3 py-2 rounded-xl border border-amber-200 transition cursor-pointer">
+                            + Hlavné jedlo
+                        </button>
+                        <button type="button" onclick="appendQuickItem('1x Pizza: ')" class="bg-amber-50 hover:bg-amber-100 active:bg-amber-200 text-amber-950 font-bold text-xs sm:text-sm px-3 py-2 rounded-xl border border-amber-200 transition cursor-pointer">
+                            + Pizza
+                        </button>
+                        <button type="button" onclick="appendQuickItem('1x Nápoj: ')" class="bg-amber-50 hover:bg-amber-100 active:bg-amber-200 text-amber-950 font-bold text-xs sm:text-sm px-3 py-2 rounded-xl border border-amber-200 transition cursor-pointer">
+                            + Nápoj
+                        </button>
+                        <button type="button" onclick="appendQuickItem('1x Obal / Box')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs sm:text-sm px-3 py-2 rounded-xl border border-slate-300 transition cursor-pointer">
+                            + Obal
+                        </button>
+                    </div>
+
+                    <!-- Veľké textové pole pre položky -->
+                    <textarea id="itemsInput" rows="5" placeholder="Napíšte položky objednávky (každú na nový riadok), napr.:&#10;1x Slepačí vývar s rezancami&#10;2x Pizza Margherita&#10;1x Kofola 0,5l" oninput="updateReceipt()" class="w-full rounded-xl border border-slate-300 p-3.5 text-base font-semibold text-slate-900 leading-relaxed focus:outline-none focus:ring-2 focus:ring-amber-500"></textarea>
+
+                    <!-- Špeciálna poznámka -->
+                    <div class="pt-1">
+                        <label for="noteInput" class="block text-xs font-bold text-slate-700 mb-1">⚠️ Špeciálna poznámka pre kuriéra alebo kuchyňu</label>
+                        <input type="text" id="noteInput" placeholder="napr. Zazvoniť na 3. poschodie / Bez cibule / Nevolať" oninput="updateReceipt()" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- PRAVÝ STĹPEC: Nastavenia bločku, Tlačidlá akcií a Živý náhľad (Live Preview) -->
+            <section class="lg:col-span-5 space-y-4 lg:sticky lg:top-20">
+
+                <!-- Nastavenia vzhľadu lístka (ukladajú sa do localStorage) -->
+                <div class="no-print bg-white p-4 rounded-2xl shadow-xs border border-slate-200 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-extrabold uppercase tracking-wider text-slate-500">Vzhľad a veľkosť lístka</span>
+
+                        <!-- Šírka papiera: 80mm / 58mm -->
+                        <div class="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+                            <button type="button" id="btnWidth80" onclick="setPaperWidth('80mm')" class="px-3 py-1 text-xs font-extrabold rounded-lg bg-white text-slate-950 shadow-xs transition cursor-pointer">80 mm</button>
+                            <button type="button" id="btnWidth58" onclick="setPaperWidth('58mm')" class="px-3 py-1 text-xs font-extrabold rounded-lg text-slate-500 hover:text-slate-900 transition cursor-pointer">58 mm</button>
+                        </div>
+                    </div>
+
+                    <!-- Veľkosť písma: 1x, 1.3x, 1.6x -->
+                    <div class="grid grid-cols-3 gap-2">
+                        <button type="button" id="btnScale1" onclick="setFontScale('1')" class="py-2.5 px-2 rounded-xl text-xs font-bold border transition bg-white border-slate-200 text-slate-700 hover:bg-slate-50 cursor-pointer">
+                            Normálne (1x)
+                        </button>
+                        <button type="button" id="btnScale13" onclick="setFontScale('1.3')" class="py-2.5 px-2 rounded-xl text-xs font-extrabold border transition bg-slate-900 border-slate-900 text-white cursor-pointer">
+                            Veľké (1.3x)
+                        </button>
+                        <button type="button" id="btnScale16" onclick="setFontScale('1.6')" class="py-2.5 px-2 rounded-xl text-xs font-black border transition bg-white border-slate-200 text-slate-700 hover:bg-slate-50 cursor-pointer">
+                            Extra (1.6x)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Hlavné akčné tlačidlá: VYTLAČIŤ a ĎALŠIA OBJEDNÁVKA -->
+                <div class="no-print grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <button type="button" onclick="handlePrintOrder()" class="sm:col-span-2 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-black text-base sm:text-lg py-4 px-5 rounded-2xl shadow-lg shadow-emerald-600/25 transition flex items-center justify-center gap-2.5 cursor-pointer">
+                        <span class="text-2xl">🖨️</span>
+                        <span>VYTLAČIŤ LÍSTOK</span>
+                    </button>
+                    <button type="button" onclick="nextOrder()" class="bg-slate-800 hover:bg-slate-900 active:scale-[0.99] text-white font-extrabold text-sm py-3.5 px-3 rounded-2xl shadow transition flex flex-col items-center justify-center leading-tight cursor-pointer">
+                        <span>Ďalšia objednávka ➡️</span>
+                        <span class="text-[11px] font-normal text-slate-300 mt-0.5">(Vymazať a +1)</span>
+                    </button>
+                </div>
+
+                <!-- ŽIVÝ NÁHĽAD (LIVE PREVIEW) - Toto jediné sa odošle na tlačiareň -->
+                <div class="print-area flex flex-col items-center pt-1">
+                    <div class="no-print flex items-center gap-2 mb-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Živý náhľad bločku</span>
+                    </div>
+
+                    <div id="receiptPaper" class="receipt-paper receipt-80mm p-4 rounded-sm border border-slate-300">
+                        <!-- Názov prevádzky -->
+                        <div id="previewShopHeader" class="text-center mb-2">
+                            <div id="previewShopName" class="r-text-base font-black uppercase tracking-tight leading-tight">MOJA PREVÁDZKA</div>
+                        </div>
+
+                        <!-- Čierny pruh s typom a číslom objednávky -->
+                        <div class="bg-black text-white text-center py-1.5 px-2 font-black tracking-wide uppercase">
+                            <span id="previewType" class="r-text-lg">🚚 ROZVOZ</span>
+                            <span class="mx-1.5">|</span>
+                            <span id="previewNumber" class="r-text-lg">#1</span>
+                        </div>
+
+                        <!-- Dátum a čas -->
+                        <div class="flex justify-between items-center r-text-xs font-bold mt-2">
+                            <span id="previewDate">13.11.2026</span>
+                            <span id="previewTime" class="r-text-sm font-black">12:00</span>
+                        </div>
+
+                        <div class="receipt-divider-dashed"></div>
+
+                        <!-- Tučné orámovanie adresy pre rozvozára -->
+                        <div id="previewAddressBox" class="border-2 border-black p-2 my-2 space-y-1">
+                            <div class="r-text-xs font-black uppercase tracking-wider">ADRESA DORUČENIA:</div>
+                            <div id="previewStreet" class="r-text-xl font-black leading-tight break-words">
+                                (Zadajte ulicu a číslo)
+                            </div>
+                            <div id="previewCity" class="r-text-base font-extrabold leading-tight hidden"></div>
+
+                            <div id="previewPhoneRow" class="pt-1 border-t border-black/30 hidden">
+                                <span class="r-text-xs font-extrabold uppercase">TEL: </span>
+                                <span id="previewPhone" class="r-text-lg font-black tracking-wide"></span>
+                            </div>
+
+                            <div id="previewCustomerRow" class="hidden">
+                                <span class="r-text-xs font-extrabold uppercase">MENO: </span>
+                                <span id="previewCustomer" class="r-text-sm font-bold"></span>
+                            </div>
+                        </div>
+
+                        <!-- Kontakt pre Osobný odber (keď nie je rozvoz, ale zákazník zadal meno/telefón) -->
+                        <div id="previewPickupContactBox" class="hidden my-2 space-y-0.5">
+                            <div id="previewPickupName" class="r-text-base font-black"></div>
+                            <div id="previewPickupPhone" class="r-text-base font-extrabold"></div>
+                            <div class="receipt-divider-dashed"></div>
+                        </div>
+
+                        <!-- Položky objednávky -->
+                        <div class="my-2">
+                            <div class="r-text-xs font-black uppercase tracking-wider mb-1">OBJEDNÁVKA:</div>
+                            <div id="previewItems" class="r-text-base font-bold whitespace-pre-wrap leading-snug break-words">
+                                (Žiadne položky)
+                            </div>
+                        </div>
+
+                        <!-- Špeciálna poznámka -->
+                        <div id="previewNoteBox" class="hidden my-2.5 border-2 border-black p-2">
+                            <div class="r-text-xs font-black uppercase tracking-wider">⚠️ POZNÁMKA:</div>
+                            <div id="previewNote" class="r-text-base font-black leading-snug break-words mt-0.5"></div>
+                        </div>
+
+                        <!-- Tučné orámovanie platby a sumy pre rozvozára -->
+                        <div id="previewPaymentBox" class="border-2 border-black p-2 my-2.5">
+                            <div id="previewPaymentType" class="r-text-sm font-black uppercase">
+                                💵 HOTOVOSŤ
+                            </div>
+                            <div id="previewPriceRow" class="hidden flex justify-between items-baseline mt-1 pt-1 border-t border-black">
+                                <span class="r-text-sm font-black uppercase">SPOLU:</span>
+                                <span id="previewPrice" class="r-text-xl font-black">0,00 €</span>
+                            </div>
+                        </div>
+
+                        <div class="receipt-divider-dashed"></div>
+
+                        <!-- Spodný okraj pre rezačku tlačiarne -->
+                        <div class="text-center r-text-xs font-extrabold pt-1 pb-4">
+                            *** KONIEC LÍSTKA ***
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+        </div>
+    </main>
+
+    <!-- Modálne okno: História posledných 10 vytlačených objednávok -->
+    <div id="historyModal" class="no-print hidden fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full max-h-[85vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+                <div>
+                    <h2 class="font-extrabold text-lg text-slate-900">🕒 História vytlačených lístkov</h2>
+                    <p class="text-xs text-slate-500">Posledných 10 objednávok uložených v zariadení</p>
+                </div>
+                <button type="button" onclick="closeHistoryModal()" class="w-9 h-9 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-slate-950 font-bold text-xl flex items-center justify-center cursor-pointer">&times;</button>
+            </div>
+
+            <div id="historyListContainer" class="p-4 overflow-y-auto space-y-2.5 flex-1">
+                <!-- Dynamicky generovaný zoznam objednávok -->
+            </div>
+
+            <div class="px-5 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+                <button type="button" onclick="clearHistory()" class="text-xs font-bold text-rose-600 hover:text-rose-700 cursor-pointer">Vymazať celú históriu</button>
+                <button type="button" onclick="closeHistoryModal()" class="bg-slate-900 text-white text-sm font-bold px-4 py-2 rounded-xl cursor-pointer">Zavrieť</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Informačná bublina (Toast) namiesto alert() -->
+    <div id="toast" class="no-print fixed bottom-5 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-sm font-bold px-4 py-2.5 rounded-xl shadow-xl opacity-0 pointer-events-none transition-opacity duration-300 z-50 whitespace-nowrap">
+        Hotovo
+    </div>
+
+    <script>
+        // Kľúče pre localStorage
+        const STORAGE_SETTINGS_KEY = 'rozvoz_kuchyna_settings_v2';
+        const STORAGE_HISTORY_KEY = 'rozvoz_kuchyna_history_v2';
+
+        // Predvolený stav aplikácie
+        let state = {
+            orderType: 'ROZVOZ',
+            shopName: 'MOJA PREVÁDZKA',
+            orderCounter: 1,
+            paperWidth: '80mm',
+            fontScale: '1.3'
+        };
+
+        let orderHistory = [];
+
+        // Inicializácia po načítaní stránky
+        window.onload = function() {
+            loadFromStorage();
+            updateClock();
+            setInterval(updateClock, 10000);
+            applySettingsToUI();
+            setOrderType(state.orderType, false);
+            updateReceipt();
+            renderHistoryBadge();
+        };
+
+        // Zobrazenie krátkeho oznámenia
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.remove('opacity-0');
+            setTimeout(() => {
+                toast.classList.add('opacity-0');
+            }, 2200);
+        }
+
+        // Aktualizácia dátumu a času
+        function updateClock() {
+            const now = new Date();
+            const d = String(now.getDate()).padStart(2, '0');
+            const m = String(now.getMonth() + 1).padStart(2, '0');
+            const y = now.getFullYear();
+            const hh = String(now.getHours()).padStart(2, '0');
+            const mm = String(now.getMinutes()).padStart(2, '0');
+
+            document.getElementById('previewDate').textContent = `${d}.${m}.${y}`;
+            document.getElementById('previewTime').textContent = `${hh}:${mm}`;
+        }
+
+        // Uloženie a aktualizácia názvu prevádzky
+        function handleShopNameChange() {
+            state.shopName = document.getElementById('shopNameInput').value;
+            saveSettings();
+            updateReceipt();
+        }
+
+        // Prepínanie typu objednávky (ROZVOZ / KUCHYŇA / OSOBNÝ ODBER)
+        function setOrderType(type, shouldSave = true) {
+            state.orderType = type;
+            if (shouldSave) saveSettings();
+
+            const btnMap = {
+                'ROZVOZ': document.getElementById('btnTypeRozvoz'),
+                'KUCHYŇA': document.getElementById('btnTypeKuchyna'),
+                'OSOBNÝ ODBER': document.getElementById('btnTypeOdber')
+            };
+
+            Object.keys(btnMap).forEach(key => {
+                const btn = btnMap[key];
+                if (key === type) {
+                    btn.className = 'py-3 px-2 rounded-xl font-extrabold text-xs sm:text-sm border-2 transition flex flex-col items-center justify-center gap-1 bg-amber-50 border-amber-500 text-amber-950 cursor-pointer';
+                } else {
+                    btn.className = 'py-3 px-2 rounded-xl font-extrabold text-xs sm:text-sm border-2 transition flex flex-col items-center justify-center gap-1 bg-white border-slate-200 text-slate-600 hover:bg-slate-50 cursor-pointer';
+                }
+            });
+
+            const deliverySectionForm = document.getElementById('deliverySectionForm');
+            const addressFieldsWrapper = document.getElementById('addressFieldsWrapper');
+
+            // Pri voľbe KUCHYŇA sa skryjú polia pre rozvoz (adresa, platba)
+            if (type === 'KUCHYŇA') {
+                deliverySectionForm.classList.add('hidden');
+            } else if (type === 'OSOBNÝ ODBER') {
+                deliverySectionForm.classList.remove('hidden');
+                addressFieldsWrapper.classList.add('hidden');
+            } else {
+                // ROZVOZ
+                deliverySectionForm.classList.remove('hidden');
+                addressFieldsWrapper.classList.remove('hidden');
+            }
+
+            updateReceipt();
+        }
+
+        // Pridanie rýchlej položky do textového poľa
+        function appendQuickItem(text) {
+            const textarea = document.getElementById('itemsInput');
+            const val = textarea.value;
+            if (val.length > 0 && !val.endsWith('\n')) {
+                textarea.value = val + '\n' + text;
+            } else {
+                textarea.value = val + text;
+            }
+            textarea.focus();
+            updateReceipt();
+        }
+
+        // Vymazanie iba položiek
+        function clearItemsOnly() {
+            document.getElementById('itemsInput').value = '';
+            updateReceipt();
+        }
+
+        // Prepnutie šírky papiera (80mm / 58mm)
+        function setPaperWidth(width) {
+            state.paperWidth = width;
+            saveSettings();
+            applySettingsToUI();
+        }
+
+        // Prepnutie mierky písma (1, 1.3, 1.6)
+        function setFontScale(scale) {
+            state.fontScale = scale;
+            saveSettings();
+            applySettingsToUI();
+        }
+
+        // Aplikovanie uložených nastavení vzhľadu do UI a náhľadu
+        function applySettingsToUI() {
+            document.getElementById('shopNameInput').value = state.shopName;
+            document.getElementById('orderNumber').value = state.orderCounter || 1;
+
+            const paper = document.getElementById('receiptPaper');
+            paper.style.setProperty('--font-scale', state.fontScale);
+
+            const btn80 = document.getElementById('btnWidth80');
+            const btn58 = document.getElementById('btnWidth58');
+
+            if (state.paperWidth === '80mm') {
+                paper.classList.remove('receipt-58mm');
+                paper.classList.add('receipt-80mm');
+                btn80.className = 'px-3 py-1 text-xs font-extrabold rounded-lg bg-white text-slate-950 shadow-xs transition cursor-pointer';
+                btn58.className = 'px-3 py-1 text-xs font-extrabold rounded-lg text-slate-500 hover:text-slate-900 transition cursor-pointer';
+            } else {
+                paper.classList.remove('receipt-80mm');
+                paper.classList.add('receipt-58mm');
+                btn58.className = 'px-3 py-1 text-xs font-extrabold rounded-lg bg-white text-slate-950 shadow-xs transition cursor-pointer';
+                btn80.className = 'px-3 py-1 text-xs font-extrabold rounded-lg text-slate-500 hover:text-slate-900 transition cursor-pointer';
+            }
+
+            const scaleButtons = {
+                '1': document.getElementById('btnScale1'),
+                '1.3': document.getElementById('btnScale13'),
+                '1.6': document.getElementById('btnScale16')
+            };
+
+            Object.keys(scaleButtons).forEach(key => {
+                const btn = scaleButtons[key];
+                if (key === String(state.fontScale)) {
+                    btn.className = 'py-2.5 px-2 rounded-xl text-xs font-extrabold border transition bg-slate-900 border-slate-900 text-white cursor-pointer';
+                } else {
+                    btn.className = 'py-2.5 px-2 rounded-xl text-xs font-bold border transition bg-white border-slate-200 text-slate-700 hover:bg-slate-50 cursor-pointer';
+                }
+            });
+        }
+
+        // Prekreslenie živého náhľadu (Live Preview)
+        function updateReceipt() {
+            const shopName = document.getElementById('shopNameInput').value.trim();
+            const orderNumber = document.getElementById('orderNumber').value.trim() || '1';
+            const street = document.getElementById('streetInput').value.trim();
+            const city = document.getElementById('cityInput').value.trim();
+            const phone = document.getElementById('phoneInput').value.trim();
+            const customerName = document.getElementById('customerNameInput').value.trim();
+            const payment = document.getElementById('paymentInput').value;
+            const price = document.getElementById('priceInput').value.trim();
+            const items = document.getElementById('itemsInput').value.trim();
+            const note = document.getElementById('noteInput').value.trim();
+
+            // Názov prevádzky
+            const shopHeader = document.getElementById('previewShopHeader');
+            if (shopName) {
+                shopHeader.classList.remove('hidden');
+                document.getElementById('previewShopName').textContent = shopName;
+            } else {
+                shopHeader.classList.add('hidden');
+            }
+
+            // Hlavička typu a čísla objednávky
+            let icon = '🚚';
+            if (state.orderType === 'KUCHYŇA') icon = '🍳';
+            if (state.orderType === 'OSOBNÝ ODBER') icon = '🛍️';
+
+            document.getElementById('previewType').textContent = `${icon} ${state.orderType}`;
+            document.getElementById('previewNumber').textContent = `#${orderNumber}`;
+
+            // Sekcie podľa typu objednávky
+            const addressBox = document.getElementById('previewAddressBox');
+            const pickupContactBox = document.getElementById('previewPickupContactBox');
+            const paymentBox = document.getElementById('previewPaymentBox');
+
+            if (state.orderType === 'ROZVOZ') {
+                addressBox.classList.remove('hidden');
+                pickupContactBox.classList.add('hidden');
+                paymentBox.classList.remove('hidden');
+
+                // Ulica
+                const streetEl = document.getElementById('previewStreet');
+                if (street) {
+                    streetEl.textContent = street;
+                    streetEl.classList.remove('opacity-40');
+                } else {
+                    streetEl.textContent = '(Zadajte ulicu a číslo)';
+                    streetEl.classList.add('opacity-40');
+                }
+
+                // Mesto
+                const cityEl = document.getElementById('previewCity');
+                if (city) {
+                    cityEl.textContent = city;
+                    cityEl.classList.remove('hidden');
+                } else {
+                    cityEl.classList.add('hidden');
+                }
+
+                // Telefón
+                const phoneRow = document.getElementById('previewPhoneRow');
+                if (phone) {
+                    phoneRow.classList.remove('hidden');
+                    document.getElementById('previewPhone').textContent = phone;
+                } else {
+                    phoneRow.classList.add('hidden');
+                }
+
+                // Meno
+                const customerRow = document.getElementById('previewCustomerRow');
+                if (customerName) {
+                    customerRow.classList.remove('hidden');
+                    document.getElementById('previewCustomer').textContent = customerName;
+                } else {
+                    customerRow.classList.add('hidden');
+                }
+            } else if (state.orderType === 'OSOBNÝ ODBER') {
+                addressBox.classList.add('hidden');
+                paymentBox.classList.remove('hidden');
+
+                if (customerName || phone) {
+                    pickupContactBox.classList.remove('hidden');
+                    document.getElementById('previewPickupName').textContent = customerName ? `MENO: ${customerName}` : '';
+                    document.getElementById('previewPickupPhone').textContent = phone ? `TEL: ${phone}` : '';
+                } else {
+                    pickupContactBox.classList.add('hidden');
+                }
+            } else {
+                // KUCHYŇA - skryť adresu aj platbu
+                addressBox.classList.add('hidden');
+                pickupContactBox.classList.add('hidden');
+                paymentBox.classList.add('hidden');
+            }
+
+            // Položky objednávky
+            const itemsEl = document.getElementById('previewItems');
+            if (items) {
+                itemsEl.textContent = items;
+                itemsEl.classList.remove('opacity-40');
+            } else {
+                itemsEl.textContent = '(Žiadne položky)';
+                itemsEl.classList.add('opacity-40');
+            }
+
+            // Špeciálna poznámka
+            const noteBox = document.getElementById('previewNoteBox');
+            if (note) {
+                noteBox.classList.remove('hidden');
+                document.getElementById('previewNote').textContent = note;
+            } else {
+                noteBox.classList.add('hidden');
+            }
+
+            // Platba a suma (pre ROZVOZ a OSOBNÝ ODBER)
+            if (state.orderType !== 'KUCHYŇA') {
+                let payIcon = '💵';
+                if (payment === 'ZAPLATENÉ KARTOU ONLINE') payIcon = '✅';
+                if (payment === 'KARTOU KURIÉROVI') payIcon = '💳';
+
+                document.getElementById('previewPaymentType').textContent = `${payIcon} ${payment}`;
+
+                const priceRow = document.getElementById('previewPriceRow');
+                if (price) {
+                    priceRow.classList.remove('hidden');
+                    document.getElementById('previewPrice').textContent = price.includes('€') ? price : `${price} €`;
+                } else {
+                    priceRow.classList.add('hidden');
+                }
+            }
+        }
+
+        // Uloženie objednávky do histórie (max 10 záznamov) a spustenie tlače
+        function handlePrintOrder() {
+            updateClock();
+            updateReceipt();
+            saveCurrentOrderToHistory();
+            window.print();
+        }
+
+        // Uloženie aktuálnej objednávky do localStorage histórie
+        function saveCurrentOrderToHistory() {
+            const now = new Date();
+            const timestamp = now.toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' }) + ' (' + now.toLocaleDateString('sk-SK') + ')';
+
+            const orderRecord = {
+                id: Date.now(),
+                timestamp: timestamp,
+                orderType: state.orderType,
+                orderNumber: document.getElementById('orderNumber').value.trim() || '1',
+                street: document.getElementById('streetInput').value.trim(),
+                city: document.getElementById('cityInput').value.trim(),
+                phone: document.getElementById('phoneInput').value.trim(),
+                customerName: document.getElementById('customerNameInput').value.trim(),
+                payment: document.getElementById('paymentInput').value,
+                price: document.getElementById('priceInput').value.trim(),
+                items: document.getElementById('itemsInput').value.trim(),
+                note: document.getElementById('noteInput').value.trim()
+            };
+
+            // Pridať na začiatok a ponechať max 10 posledných
+            orderHistory.unshift(orderRecord);
+            if (orderHistory.length > 10) {
+                orderHistory = orderHistory.slice(0, 10);
+            }
+
+            try {
+                localStorage.setItem(STORAGE_HISTORY_KEY, JSON.stringify(orderHistory));
+            } catch (e) {
+                console.warn('Chyba pri ukladaní histórie:', e);
+            }
+
+            renderHistoryBadge();
+        }
+
+        // Ďalšia objednávka: vymaže polia a zvýši číslo o +1
+        function nextOrder() {
+            const numInput = document.getElementById('orderNumber');
+            const current = parseInt(numInput.value, 10);
+            if (!isNaN(current)) {
+                state.orderCounter = current + 1;
+                numInput.value = state.orderCounter;
+                saveSettings();
+            }
+            clearForm(false);
+            showToast(`Pripravená objednávka #${numInput.value}`);
+        }
+
+        // Vymazanie formulára
+        function clearForm(notify) {
+            document.getElementById('streetInput').value = '';
+            document.getElementById('cityInput').value = '';
+            document.getElementById('phoneInput').value = '';
+            document.getElementById('customerNameInput').value = '';
+            document.getElementById('paymentInput').value = 'HOTOVOSŤ';
+            document.getElementById('priceInput').value = '';
+            document.getElementById('itemsInput').value = '';
+            document.getElementById('noteInput').value = '';
+            updateReceipt();
+            if (notify) showToast('Formulár bol vyčistený');
+        }
+
+        // Resetovanie počítadla na #1
+        function resetOrderCounter() {
+            state.orderCounter = 1;
+            document.getElementById('orderNumber').value = '1';
+            saveSettings();
+            updateReceipt();
+            showToast('Počítadlo resetované na #1');
+        }
+
+        // Modálne okno histórie
+        function openHistoryModal() {
+            renderHistoryList();
+            document.getElementById('historyModal').classList.remove('hidden');
+        }
+
+        function closeHistoryModal() {
+            document.getElementById('historyModal').classList.add('hidden');
+        }
+
+        function renderHistoryBadge() {
+            document.getElementById('historyBadge').textContent = orderHistory.length;
+        }
+
+        function renderHistoryList() {
+            const container = document.getElementById('historyListContainer');
+            if (orderHistory.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-10 text-slate-400">
+                        <div class="text-3xl mb-2">📭</div>
+                        <p class="text-sm font-semibold">Zatiaľ žiadne vytlačené objednávky</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = orderHistory.map((item, idx) => {
+                const titleLine = item.orderType === 'ROZVOZ'
+                    ? (item.street || 'Bez zadanej ulice')
+                    : (item.customerName || item.orderType);
+                const itemsPreview = item.items ? item.items.replace(/\n/g, ', ') : 'Bez položiek';
+
+                return `
+                    <div class="p-3.5 rounded-xl border border-slate-200 bg-white hover:border-amber-400 transition flex items-center justify-between gap-3">
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-2">
+                                <span class="bg-slate-900 text-white text-xs font-black px-2 py-0.5 rounded-md">#${item.orderNumber}</span>
+                                <span class="text-xs font-extrabold text-amber-700">${item.orderType}</span>
+                                <span class="text-[11px] text-slate-400">${item.timestamp}</span>
+                            </div>
+                            <div class="font-extrabold text-sm text-slate-900 truncate mt-1">${escapeHtml(titleLine)}</div>
+                            <div class="text-xs text-slate-500 truncate mt-0.5">${escapeHtml(itemsPreview)}</div>
+                        </div>
+                        <button type="button" onclick="loadOrderFromHistory(${idx})" class="shrink-0 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-xs px-3 py-2.5 rounded-xl transition cursor-pointer">
+                            Načítať ↩️
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Načítanie vybranej objednávky z histórie späť do formulára
+        function loadOrderFromHistory(index) {
+            const item = orderHistory[index];
+            if (!item) return;
+
+            document.getElementById('orderNumber').value = item.orderNumber || '1';
+            document.getElementById('streetInput').value = item.street || '';
+            document.getElementById('cityInput').value = item.city || '';
+            document.getElementById('phoneInput').value = item.phone || '';
+            document.getElementById('customerNameInput').value = item.customerName || '';
+            document.getElementById('paymentInput').value = item.payment || 'HOTOVOSŤ';
+            document.getElementById('priceInput').value = item.price || '';
+            document.getElementById('itemsInput').value = item.items || '';
+            document.getElementById('noteInput').value = item.note || '';
+
+            setOrderType(item.orderType || 'ROZVOZ', false);
+            updateReceipt();
+            closeHistoryModal();
+            showToast(`Načítaná objednávka #${item.orderNumber}`);
+        }
+
+        // Vymazanie histórie
+        function clearHistory() {
+            orderHistory = [];
+            try {
+                localStorage.removeItem(STORAGE_HISTORY_KEY);
+            } catch (e) {}
+            renderHistoryBadge();
+            renderHistoryList();
+            showToast('História bola vymazaná');
+        }
+
+        // Ukladanie a načítanie nastavení z localStorage
+        function saveSettings() {
+            try {
+                localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify(state));
+            } catch (e) {
+                console.warn('Chyba pri ukladaní nastavení:', e);
+            }
+        }
+
+        function loadFromStorage() {
+            try {
+                const savedSettings = localStorage.getItem(STORAGE_SETTINGS_KEY);
+                if (savedSettings) {
+                    state = { ...state, ...JSON.parse(savedSettings) };
+                }
+                const savedHistory = localStorage.getItem(STORAGE_HISTORY_KEY);
+                if (savedHistory) {
+                    orderHistory = JSON.parse(savedHistory) || [];
+                }
+            } catch (e) {
+                console.warn('Chyba pri načítaní z localStorage:', e);
+            }
+        }
+
+        // Pomocná funkcia na ošetrenie HTML znakov v histórii
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
