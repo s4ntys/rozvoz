@@ -89,7 +89,9 @@
 
             .no-print,
             header,
-            main > .grid > section:not(.print-area) {
+            /* Formulár je označený .no-print. Sekciu s bločkom nesmieme skryť,
+               pretože .print-area je vnorená vo vnútri tejto sekcie. */
+            main > .grid > section:first-child {
                 display: none !important;
             }
 
